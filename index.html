@@ -2870,6 +2870,7 @@ function enterAdoptante(u){
     gAP('adopt-animales',null);
     renderAdoptAnimales();
     renderMisSolicitudes();
+    startSolicitudesListener();
     startSync('adoptante');
     startAnimalesSync();
     startChatSync();
@@ -3098,7 +3099,7 @@ function gAP(id,btn){
   else{const map={'adopt-animales':0,'adopt-solicitudes':1,'adopt-papeleo':2,'adopt-chat':3,'adopt-perfil':4};const i=map[id];const ni=document.querySelectorAll('.adopt-ni');if(ni[i])ni[i].classList.add('active');}
   if(id === 'adopt-papeleo') initPapeleo();
   if(id === 'adopt-animales') renderAdoptAnimales();
-  if(id === 'adopt-solicitudes') renderMisSolicitudes();
+  if(id === 'adopt-solicitudes') { renderMisSolicitudes(); startSolicitudesListener(); }
   if(id === 'adopt-chat') {
     document.getElementById('chat-badge-a').style.display='none';
     // Pequeño delay para asegurar que la página ya está marcada como active
@@ -3509,22 +3510,34 @@ async function _saveSolicitudPersonal(email, sol) {
 
 async function _loadSolicitudesPersonales(email) {
   try {
-    // Intentar Firebase primero
     const db2 = await initFirebase();
     if (db2) {
+      // Leer SIEMPRE desde solicitudes globales en Firebase (fuente de verdad)
+      const snapGlobal = await firebaseDB.ref('solicitudes').once('value');
+      const globalList = [];
+      if (snapGlobal.exists()) {
+        snapGlobal.forEach(child => {
+          const s = child.val();
+          if (s.adoptanteEmail && s.adoptanteEmail.toLowerCase() === email.toLowerCase()) {
+            globalList.push(s);
+          }
+        });
+      }
+      if (globalList.length > 0) {
+        // Guardar en caché local también
+        const _key = 'pawsy-mis-sol-' + _fbUserKey(email);
+        const localList = globalList.map(s => ({
+          id: s.id, animal: s.animal, fecha: s.fecha,
+          estado: s.estado || 'pendiente', _adoptBadgeId: s._adoptBadgeId
+        }));
+        localStorage.setItem(_key, JSON.stringify(localList));
+        return localList;
+      }
+      // Si no hay en global, buscar en mis_solicitudes
       const snap = await firebaseDB.ref('mis_solicitudes/' + _fbUserKey(email)).once('value');
       if (snap.exists()) {
         const list = [];
         snap.forEach(child => list.push(child.val()));
-        // Sincronizar estados desde solicitudes globales (el refugio puede haber aprobado/rechazado)
-        const _global = db.solicitudes.filter(s => s.adoptanteEmail && s.adoptanteEmail.toLowerCase() === email.toLowerCase());
-        list.forEach(s => {
-          const g = _global.find(x => x.id === s.id);
-          if (g && g.estado !== 'pendiente') s.estado = g.estado;
-        });
-        // Caché local
-        const _key = 'pawsy-mis-sol-' + _fbUserKey(email);
-        localStorage.setItem(_key, JSON.stringify(list));
         return list;
       }
     }
@@ -4470,6 +4483,34 @@ async function syncNow(role) {
     updSol();
     recargarDocsLocalStorage();
   }
+}
+
+// ─── LISTENER TIEMPO REAL: SOLICITUDES ADOPTANTE ───
+let _solListenerActive = false;
+async function startSolicitudesListener() {
+  if (_solListenerActive || !currentAdoptante) return;
+  try {
+    const db2 = await initFirebase();
+    if (!db2) return;
+    _solListenerActive = true;
+    const email = currentAdoptante.email.toLowerCase();
+    firebaseDB.ref('solicitudes').on('value', snap => {
+      if (!currentAdoptante) return;
+      const changed = [];
+      if (snap.exists()) {
+        snap.forEach(child => {
+          const s = child.val();
+          if (s.adoptanteEmail && s.adoptanteEmail.toLowerCase() === email) changed.push(s);
+        });
+      }
+      if (changed.length > 0) {
+        const _key = 'pawsy-mis-sol-' + _fbUserKey(email);
+        const localList = changed.map(s => ({ id: s.id, animal: s.animal, fecha: s.fecha, estado: s.estado || 'pendiente', _adoptBadgeId: s._adoptBadgeId }));
+        localStorage.setItem(_key, JSON.stringify(localList));
+        renderMisSolicitudes();
+      }
+    });
+  } catch(e) {}
 }
 
 async function startSync(role) {
