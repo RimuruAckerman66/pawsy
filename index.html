@@ -2014,7 +2014,10 @@ body.dark-mode .adopt-topbar{border-color:var(--bo);}
       </div>
       <!-- MIS SOLICITUDES -->
       <div id="adopt-solicitudes" class="adopt-page">
-        <div class="adopt-topbar"><div class="adopt-topbar-title">📋 Mis solicitudes</div></div>
+        <div class="adopt-topbar">
+          <div class="adopt-topbar-title">📋 Mis solicitudes</div>
+          <button onclick="limpiarSolicitudesResueltas()" style="padding:7px 14px;border-radius:10px;border:1.5px solid var(--bo);background:#fff;font-family:'Nunito',sans-serif;font-size:11px;font-weight:700;cursor:pointer;color:var(--mu);display:flex;align-items:center;gap:5px;transition:all .15s;" onmouseover="this.style.borderColor='var(--t)';this.style.color='var(--t)'" onmouseout="this.style.borderColor='var(--bo)';this.style.color='var(--mu)'">🗑️ Limpiar resueltas</button>
+        </div>
         <div style="padding:20px;" id="mis-solicitudes-list">
           <div style="text-align:center;padding:40px;color:var(--mu);font-size:13px;" id="no-solicitudes">
             <div style="font-size:36px;margin-bottom:10px;">📋</div>
@@ -3564,6 +3567,40 @@ async function _updateEstadoPersonal(solId, nuevoEstado, email) {
 }
 
 // ─── RENDER MIS SOLICITUDES (con estados actualizados) ───
+async function limpiarSolicitudesResueltas() {
+  if (!currentAdoptante) return;
+  const email = currentAdoptante.email.toLowerCase();
+  const _key = 'pawsy-mis-sol-' + _fbUserKey(email);
+  try {
+    // Cargar lista actual
+    let lista = JSON.parse(localStorage.getItem(_key) || '[]');
+    const antes = lista.length;
+    // Filtrar solo pendientes
+    lista = lista.filter(s => s.estado === 'pendiente');
+    localStorage.setItem(_key, JSON.stringify(lista));
+
+    // También limpiar en Firebase
+    try {
+      const db2 = await initFirebase();
+      if (db2) {
+        const snap = await firebaseDB.ref('mis_solicitudes/' + _fbUserKey(email)).once('value');
+        if (snap.exists()) {
+          snap.forEach(child => {
+            const s = child.val();
+            if (s.estado === 'aprobada' || s.estado === 'rechazada') {
+              firebaseDB.ref('mis_solicitudes/' + _fbUserKey(email) + '/' + child.key).remove();
+            }
+          });
+        }
+      }
+    } catch(e) {}
+
+    const eliminadas = antes - lista.length;
+    appToast(eliminadas > 0 ? `✓ ${eliminadas} solicitud(es) eliminadas` : 'No hay solicitudes resueltas');
+    renderMisSolicitudes();
+  } catch(e) { appToast('Error al limpiar'); }
+}
+
 async function renderMisSolicitudes() {
   if (!currentAdoptante) return;
   const list = document.getElementById('mis-solicitudes-list');
