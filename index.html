@@ -3057,7 +3057,22 @@ function gP(id,btn){
   if(nis[idx])nis[idx].classList.add('active');
   if (id === 'dashboard') { renderDashboard(); }
   if (id === 'animales') { renderAnimalesRefugio(); }
-  if (id === 'documentos') { recargarDocsLocalStorage(); }
+  if (id === 'documentos') {
+    // Renderizar desde caché de Firebase si hay datos
+    if (window._papeleoFirebaseCache && window._papeleoFirebaseCache.length > 0) {
+      const lista = document.getElementById('docs-list-r');
+      const empty = document.getElementById('docs-empty-r');
+      if (lista) {
+        lista.innerHTML = '';
+        Object.keys(docsMap).forEach(k => delete docsMap[k]);
+        if (empty) empty.style.display = 'none';
+        window._papeleoFirebaseCache.forEach(fireDoc => {
+          docsMap[fireDoc.id] = fireDoc;
+          renderDocumentoRefugio(fireDoc);
+        });
+        updDocsBadge();
+      }
+    } recargarDocsLocalStorage(); }
   if (id === 'solicitudes') {
     // Solo renderizar solicitudes que aún están pendientes y no están ya en el DOM
     db.solicitudes
@@ -5199,16 +5214,25 @@ async function startSyncPapeleo() {
 
     const docs = Object.values(data);
     if (docs.length > 0) {
-      if (empty) empty.style.display = 'none';
-      docs.forEach(fireDoc => {
-        if (!fireDoc || !fireDoc.id) return;
+      // Guardar en caché global para cuando abra la página
+      window._papeleoFirebaseCache = docs.map(fireDoc => {
         const localDoc = localPaps[fireDoc.id];
         if (localDoc && localDoc.archivos) fireDoc.archivos = localDoc.archivos;
         else if (!fireDoc.archivos) fireDoc.archivos = {};
-        docsMap[fireDoc.id] = fireDoc;
-        renderDocumentoRefugio(fireDoc);
+        return fireDoc;
       });
-      updDocsBadge();
+      // Renderizar si la página está visible
+      const lista = document.getElementById('docs-list-r');
+      if (lista) {
+        if (empty) empty.style.display = 'none';
+        lista.innerHTML = '';
+        Object.keys(docsMap).forEach(k => delete docsMap[k]);
+        window._papeleoFirebaseCache.forEach(fireDoc => {
+          docsMap[fireDoc.id] = fireDoc;
+          renderDocumentoRefugio(fireDoc);
+        });
+        updDocsBadge();
+      }
     }
   });
 }
