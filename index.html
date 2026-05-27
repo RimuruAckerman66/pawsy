@@ -6093,7 +6093,7 @@ function exportarDatos() {
 function importarDatos(file) {
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try {
       const data = JSON.parse(e.target.result);
       let count = 0;
@@ -6101,8 +6101,45 @@ function importarDatos(file) {
         localStorage.setItem(k, v);
         count++;
       });
-      appToast('✓ ' + count + ' claves importadas. Recargando...');
-      setTimeout(() => location.reload(), 1500);
+      appToast('✓ Importando y sincronizando con Firebase...');
+
+      // Recargar DB desde localStorage
+      loadDB();
+      loadVacDB();
+
+      // Subir todo a Firebase para que esté disponible en todos los dispositivos
+      try {
+        const db2 = await initFirebase();
+        if (db2) {
+          // Animales
+          if (db.animales && db.animales.length > 0) {
+            const animalesObj = {};
+            db.animales.forEach(a => { animalesObj[a.id] = a; });
+            await firebaseDB.ref('animales').set(animalesObj);
+          }
+          // Solicitudes
+          if (db.solicitudes && db.solicitudes.length > 0) {
+            const solObj = {};
+            db.solicitudes.forEach(s => { solObj[s.id] = s; });
+            await firebaseDB.ref('solicitudes').set(solObj);
+          }
+          // Perfil refugio
+          const perfilStr = localStorage.getItem('pawsy_perfilRefugio');
+          if (perfilStr) {
+            const perfil = JSON.parse(perfilStr);
+            await firebaseDB.ref('perfilRefugio').set(perfil);
+          }
+          // Chat
+          await pushChatToFirebase();
+          // Usuarios
+          await loadUsersFromFirebase();
+          appToast('✓ Todo sincronizado con Firebase. Recargando...');
+        }
+      } catch(fbErr) {
+        appToast('✓ ' + count + ' claves importadas. Recargando...');
+      }
+
+      setTimeout(() => location.reload(), 2000);
     } catch(err) { appToast('Error al importar: ' + err.message); }
   };
   reader.readAsText(file);
