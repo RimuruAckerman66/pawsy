@@ -5221,18 +5221,17 @@ async function startSyncPapeleo() {
         else if (!fireDoc.archivos) fireDoc.archivos = {};
         return fireDoc;
       });
-      // Renderizar si la página está visible
+      // Renderizar siempre — si la página no está activa igual actualiza docsMap y badge
+      Object.keys(docsMap).forEach(k => delete docsMap[k]);
+      window._papeleoFirebaseCache.forEach(fireDoc => { docsMap[fireDoc.id] = fireDoc; });
+      
       const lista = document.getElementById('docs-list-r');
       if (lista) {
         if (empty) empty.style.display = 'none';
         lista.innerHTML = '';
-        Object.keys(docsMap).forEach(k => delete docsMap[k]);
-        window._papeleoFirebaseCache.forEach(fireDoc => {
-          docsMap[fireDoc.id] = fireDoc;
-          renderDocumentoRefugio(fireDoc);
-        });
-        updDocsBadge();
+        window._papeleoFirebaseCache.forEach(fireDoc => renderDocumentoRefugio(fireDoc));
       }
+      updDocsBadge();
     }
   });
 }
