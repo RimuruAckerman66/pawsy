@@ -1554,7 +1554,9 @@ body.dark-mode .adopt-topbar{border-color:var(--bo);}
       <div id="pg-perfil-refugio" class="page">
         <div class="topbar">
           <div class="tb-title">Perfil del refugio</div>
-          <div class="tb-act">
+          <div class="tb-act" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button onclick="exportarDatos()" style="padding:7px 13px;border-radius:9px;border:none;background:linear-gradient(135deg,#0d9488,#0891b2);color:#fff;font-family:'Nunito',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">💾 Exportar datos</button>
+            <label style="padding:7px 13px;border-radius:9px;border:1.5px solid var(--bo);background:#fff;font-family:'Nunito',sans-serif;font-size:11px;font-weight:700;cursor:pointer;color:var(--mu);white-space:nowrap;">📂 Importar datos<input type="file" accept=".json" style="display:none;" onchange="importarDatos(this.files[0])"></label>
             <button class="btn btn-sm btn-o" id="btn-editar-refugio" onclick="toggleEditRefugio(true)">✏️ Editar perfil</button>
             <button class="btn btn-sm btn-t" id="btn-guardar-refugio" style="display:none;" onclick="guardarPerfilRefugio()">Guardar cambios</button>
             <button class="btn btn-sm btn-g" id="btn-cancelar-refugio" style="display:none;" onclick="toggleEditRefugio(false)">Cancelar</button>
@@ -6010,6 +6012,56 @@ function iniciarChatConAdoptante(nombre, email) {
   // Navegar a chats y abrir el modal
   gP('chats', null);
   setTimeout(() => openChatRefugio(id), 80);
+}
+
+// ─── EXPORTAR / IMPORTAR DATOS (migración entre versiones) ───
+function exportarDatos() {
+  try {
+    const keys = [
+      'pawsy_db','pawsy_chatDB','pawsy_perfilRefugio','pawsy_vacunas',
+      'pawsy_refugioUsers','pawsy_adoptanteUsers','pawsy_agendaEventos',
+      'pawsy_last_role','pawsy_session_refugio','pawsy_session_adoptante'
+    ];
+    const exportData = {};
+    keys.forEach(k => {
+      const v = localStorage.getItem(k);
+      if (v) exportData[k] = v;
+    });
+    // También exportar claves de mis-solicitudes personales
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('pawsy-mis-sol-') || k.startsWith('pawsy-especies-custom'))) {
+        exportData[k] = localStorage.getItem(k);
+      }
+    }
+    const json = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'pawsy-datos-' + new Date().toISOString().split('T')[0] + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    appToast('✓ Datos exportados correctamente');
+  } catch(e) { appToast('Error al exportar: ' + e.message); }
+}
+
+function importarDatos(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      let count = 0;
+      Object.entries(data).forEach(([k, v]) => {
+        localStorage.setItem(k, v);
+        count++;
+      });
+      appToast('✓ ' + count + ' claves importadas. Recargando...');
+      setTimeout(() => location.reload(), 1500);
+    } catch(err) { appToast('Error al importar: ' + err.message); }
+  };
+  reader.readAsText(file);
 }
 
 // ─── RESTAURAR SESIÓN AL CARGAR ───
