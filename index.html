@@ -3,8 +3,66 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Pawsy — Gestión inteligente para refugios</title>
+
+<!-- PWA Meta Tags -->
+<meta name="application-name" content="Pawsy">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pawsy">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d9488">
+<meta name="description" content="Portal de adopción de animales — Pawsy">
+<link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==">
+
+<script>
+(function() {
+  // Manifest PWA dinámico
+  const manifest = {
+    name: "Pawsy — Portal de adopción",
+    short_name: "Pawsy",
+    description: "Adopta, conecta y cuida animales con tu refugio",
+    start_url: "./",
+    scope: "./",
+    display: "standalone",
+    background_color: "#0d9488",
+    theme_color: "#0d9488",
+    orientation: "portrait-primary",
+    icons: [{
+      src: "data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0d9488"/><text x="256" y="290" font-size="260" text-anchor="middle" font-family="Apple Color Emoji,Segoe UI Emoji">🐾</text></svg>'),
+      sizes: "512x512",
+      type: "image/svg+xml",
+      purpose: "any maskable"
+    }]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = url;
+  document.currentScript.parentNode.insertBefore(link, document.currentScript);
+
+  // Service Worker para offline + instalación
+  if ('serviceWorker' in navigator) {
+    const swCode = `
+      const CACHE = 'pawsy-v1';
+      self.addEventListener('install', e => {
+        e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', './index.html'])));
+        self.skipWaiting();
+      });
+      self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
+      self.addEventListener('fetch', e => {
+        if (e.request.url.includes('firebase') || e.request.url.includes('googleapis')) return;
+        e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+      });
+    `;
+    const swBlob = new Blob([swCode], {type: 'application/javascript'});
+    const swUrl = URL.createObjectURL(swBlob);
+    navigator.serviceWorker.register(swUrl, {scope: './'}).catch(() => {});
+  }
+})();
+</script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Quicksand:wght@500;600;700;800&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -660,6 +718,37 @@ body.dark-mode .adopt-animal-card{background:var(--bg3);box-shadow:0 4px 16px rg
 .apply-btn:active{transform:scale(.98);}
 .apply-btn.applied{background:linear-gradient(135deg,#d1fae5,#a7f3d0);color:#065f46;cursor:default;box-shadow:none;}
 
+
+/* ── PWA / MOBILE ── */
+@media (display-mode: standalone) {
+  body { padding-top: env(safe-area-inset-top); }
+  .adopt-shell { border-radius: 0; min-height: 100vh; }
+}
+/* Banner instalar app */
+#pwa-install-banner{display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;
+  background:linear-gradient(135deg,#0d9488,#0891b2);padding:14px 18px;
+  box-shadow:0 -4px 20px rgba(0,0,0,.2);align-items:center;gap:12px;
+  padding-bottom:calc(14px + env(safe-area-inset-bottom));}
+#pwa-install-banner.show{display:flex;}
+.pwa-banner-ico{font-size:32px;flex-shrink:0;}
+.pwa-banner-text{flex:1;color:#fff;}
+.pwa-banner-title{font-family:'Quicksand',sans-serif;font-size:14px;font-weight:800;}
+.pwa-banner-sub{font-size:11px;opacity:.85;margin-top:2px;}
+.pwa-banner-btn{padding:9px 16px;border-radius:10px;border:none;background:#fff;
+  color:#0d9488;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.pwa-banner-close{background:none;border:none;color:rgba(255,255,255,.7);font-size:20px;
+  cursor:pointer;padding:4px;flex-shrink:0;}
+/* Mejoras táctiles mobile */
+@media (max-width: 600px) {
+  .adopt-shell{flex-direction:column;border-radius:0;min-height:100vh;}
+  .adopt-side{width:100%;min-height:auto;padding-bottom:0;}
+  .adopt-nav{display:flex;flex-wrap:wrap;gap:4px;padding:10px;}
+  .adopt-ni{min-width:140px;flex:1;}
+  .adopt-content{min-height:0;flex:1;}
+  .apply-btn{padding:14px;font-size:13px;}
+  .adopt-animal-card:hover{transform:none;}
+}
 
 .app-toast{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:var(--tx);color:#fff;padding:9px 18px;border-radius:9px;font-size:12px;font-weight:600;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
 .app-toast.show{opacity:1;}
@@ -6247,4 +6336,41 @@ if (document.readyState === 'loading') {
   setTimeout(initApp, 50);
 }
 
+</script>
+
+<!-- PWA Install Banner -->
+<div id="pwa-install-banner">
+  <div class="pwa-banner-ico">🐾</div>
+  <div class="pwa-banner-text">
+    <div class="pwa-banner-title">Instalar Pawsy</div>
+    <div class="pwa-banner-sub">Agrégala a tu pantalla de inicio para acceso rápido</div>
+  </div>
+  <button class="pwa-banner-btn" id="pwa-install-btn">Instalar</button>
+  <button class="pwa-banner-close" onclick="document.getElementById('pwa-install-banner').classList.remove('show');localStorage.setItem('pwa-dismissed','1')">✕</button>
+</div>
+<script>
+let _deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _deferredPrompt = e;
+  if (!localStorage.getItem('pwa-dismissed') && !localStorage.getItem('pwa-installed')) {
+    setTimeout(() => document.getElementById('pwa-install-banner').classList.add('show'), 3000);
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.addEventListener('click', async () => {
+    document.getElementById('pwa-install-banner').classList.remove('show');
+    if (_deferredPrompt) {
+      _deferredPrompt.prompt();
+      const { outcome } = await _deferredPrompt.userChoice;
+      if (outcome === 'accepted') localStorage.setItem('pwa-installed','1');
+      _deferredPrompt = null;
+    }
+  });
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('pwa-install-banner').classList.remove('show');
+  localStorage.setItem('pwa-installed','1');
+});
 </script>
