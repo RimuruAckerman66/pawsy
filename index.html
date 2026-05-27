@@ -3058,6 +3058,8 @@ function gP(id,btn){
   if (id === 'dashboard') { renderDashboard(); }
   if (id === 'animales') { renderAnimalesRefugio(); }
   if (id === 'documentos') {
+    // Re-suscribir al listener para asegurar datos frescos
+    startSyncPapeleo();
     // Renderizar desde caché de Firebase si hay datos
     if (window._papeleoFirebaseCache && window._papeleoFirebaseCache.length > 0) {
       const lista = document.getElementById('docs-list-r');
@@ -5185,19 +5187,22 @@ function updDocsBadge() {
 }
 
 // Escuchar papeleo en Firebase cuando el refugio entra
+let _papeleoListenerActive = false;
 async function startSyncPapeleo() {
   const db2 = await initFirebase();
   if (!db2) {
-    // Fallback localStorage — cargar papeleo completo con archivos
     try {
       const curr = JSON.parse(localStorage.getItem('pawsy-papeleo') || '{}');
-      Object.values(curr).forEach(doc => {
-        docsMap[doc.id] = doc;
-        renderDocumentoRefugio(doc);
-      });
+      Object.values(curr).forEach(doc => { docsMap[doc.id] = doc; renderDocumentoRefugio(doc); });
     } catch(e) {}
     return;
   }
+  // Siempre re-suscribir para no perder eventos nuevos
+  if (_papeleoListenerActive) {
+    try { firebaseDB.ref('papeleo').off('value'); } catch(e) {}
+    _papeleoListenerActive = false;
+  }
+  _papeleoListenerActive = true;
   firebaseDB.ref('papeleo').on('value', snap => {
     const data = snap.val() || {};
     if (!data || Object.keys(data).length === 0) return;
