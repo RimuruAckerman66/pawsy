@@ -5185,16 +5185,31 @@ async function startSyncPapeleo() {
   }
   firebaseDB.ref('papeleo').on('value', snap => {
     const data = snap.val() || {};
+    if (!data || Object.keys(data).length === 0) return;
+
+    // Limpiar lista antes de re-renderizar
+    const lista = document.getElementById('docs-list-r');
+    const empty = document.getElementById('docs-empty-r');
+    if (lista) lista.innerHTML = '';
+    Object.keys(docsMap).forEach(k => delete docsMap[k]);
+
     // Merge con archivos locales (base64 no se sube a Firebase por tamaño)
     let localPaps = {};
     try { localPaps = JSON.parse(localStorage.getItem('pawsy-papeleo') || '{}'); } catch(e) {}
-    Object.values(data).forEach(fireDoc => {
-      const localDoc = localPaps[fireDoc.id];
-      // Si hay archivos locales, fusionarlos
-      if (localDoc && localDoc.archivos) fireDoc.archivos = localDoc.archivos;
-      docsMap[fireDoc.id] = fireDoc;
-      renderDocumentoRefugio(fireDoc);
-    });
+
+    const docs = Object.values(data);
+    if (docs.length > 0) {
+      if (empty) empty.style.display = 'none';
+      docs.forEach(fireDoc => {
+        if (!fireDoc || !fireDoc.id) return;
+        const localDoc = localPaps[fireDoc.id];
+        if (localDoc && localDoc.archivos) fireDoc.archivos = localDoc.archivos;
+        else if (!fireDoc.archivos) fireDoc.archivos = {};
+        docsMap[fireDoc.id] = fireDoc;
+        renderDocumentoRefugio(fireDoc);
+      });
+      updDocsBadge();
+    }
   });
 }
 
