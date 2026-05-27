@@ -3072,7 +3072,7 @@ function gP(id,btn){
         });
         updDocsBadge();
       }
-    } recargarDocsLocalStorage(); }
+    } else { recargarDocsLocalStorage(); } }
   if (id === 'solicitudes') {
     // Solo renderizar solicitudes que aún están pendientes y no están ya en el DOM
     db.solicitudes
