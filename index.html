@@ -5318,7 +5318,7 @@ async function pushChatToFirebase() {
         unread: c.unread || false,
         unreadAdoptante: c.unreadAdoptante || false,
         msgs: (c.msgs || []).map(m => ({
-          from: m.from, text: m.text, time: m.time, date: m.date || ''
+          from: m.from, text: m.text, time: m.time, date: m.date || '', ts: m.ts || 0
         }))
       };
     });
@@ -5351,7 +5351,10 @@ async function startChatSync() {
         });
         const merged = Object.values(mergedMap).sort((a,b) => (a.ts||0)-(b.ts||0));
         
-        if (merged.length > localMsgs.length) {
+        // Siempre usar merged (puede tener mensajes nuevos del otro dispositivo)
+        if (merged.length !== localMsgs.length || 
+            (merged.length > 0 && localMsgs.length > 0 && 
+             merged[merged.length-1].ts !== localMsgs[localMsgs.length-1].ts)) {
           chatDB[id].msgs = merged;
           changed = true;
         }
