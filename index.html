@@ -681,10 +681,10 @@ body.dark-mode .adopt-animal-card{background:var(--bg3);box-shadow:0 4px 16px rg
   .adopt-shell { border-radius: 0; min-height: 100vh; }
 }
 /* Banner instalar app */
-#pwa-install-banner{display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;
-  background:linear-gradient(135deg,#0d9488,#0891b2);padding:14px 18px;
-  box-shadow:0 -4px 20px rgba(0,0,0,.2);align-items:center;gap:12px;
-  padding-bottom:calc(14px + env(safe-area-inset-bottom));}
+#pwa-install-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9999;
+  background:linear-gradient(135deg,#0d9488,#0891b2);padding:12px 16px;
+  box-shadow:0 4px 20px rgba(0,0,0,.2);align-items:center;gap:12px;
+  padding-top:calc(12px + env(safe-area-inset-top));}
 #pwa-install-banner.show{display:flex;}
 .pwa-banner-ico{font-size:32px;flex-shrink:0;}
 .pwa-banner-text{flex:1;color:#fff;}
@@ -6311,22 +6311,43 @@ if ('serviceWorker' in navigator) {
 }
 
 let _deferredPrompt = null;
+
+// Mostrar banner si no está en modo standalone (no instalada)
+function _checkShowInstallBanner() {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (!isStandalone) {
+    // Limpiar flags viejos para que siempre aparezca
+    localStorage.removeItem('pwa-installed');
+    localStorage.removeItem('pwa-dismissed');
+    setTimeout(() => document.getElementById('pwa-install-banner').classList.add('show'), 1500);
+  }
+}
+window.addEventListener('load', _checkShowInstallBanner);
+
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   _deferredPrompt = e;
-  if (!localStorage.getItem('pwa-dismissed') && !localStorage.getItem('pwa-installed')) {
-    setTimeout(() => document.getElementById('pwa-install-banner').classList.add('show'), 3000);
-  }
 });
 document.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('pwa-install-btn');
   if (btn) btn.addEventListener('click', async () => {
-    document.getElementById('pwa-install-banner').classList.remove('show');
     if (_deferredPrompt) {
+      // Chrome soporta prompt automático
       _deferredPrompt.prompt();
       const { outcome } = await _deferredPrompt.userChoice;
-      if (outcome === 'accepted') localStorage.setItem('pwa-installed','1');
+      if (outcome === 'accepted') {
+        document.getElementById('pwa-install-banner').classList.remove('show');
+      }
       _deferredPrompt = null;
+    } else {
+      // Mostrar instrucciones manuales
+      document.getElementById('pwa-install-banner').classList.remove('show');
+      const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        alert('Para instalar Pawsy en iPhone:\n1. Toca el botón de compartir (cuadrado con flecha)\n2. Selecciona "Agregar a pantalla de inicio"\n3. Toca "Agregar"');
+      } else {
+        alert('Para instalar Pawsy:\n1. Toca el menú ⋮ del navegador\n2. Selecciona "Instalar app" o "Agregar a pantalla de inicio"\n3. Toca "Instalar"');
+      }
     }
   });
 });
