@@ -1,0 +1,27 @@
+{
+  "name": "Pawsy — Portal de adopción",
+  "short_name": "Pawsy",
+  "description": "Adopta, conecta y cuida animales con tu refugio",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d9488",
+  "theme_color": "#0d9488",
+  "orientation": "portrait-primary",
+  "lang": "es",
+  "categories": ["lifestyle", "social"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
