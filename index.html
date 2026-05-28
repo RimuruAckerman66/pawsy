@@ -5253,47 +5253,45 @@ async function startSyncPapeleo() {
     } catch(e) {}
     return;
   }
-  // Siempre re-suscribir para no perder eventos nuevos
-  if (_papeleoListenerActive) {
-    try { firebaseDB.ref('papeleo').off('value'); } catch(e) {}
-    _papeleoListenerActive = false;
-  }
+  // Siempre re-suscribir limpiamente
+  try { firebaseDB.ref('papeleo').off(); } catch(e) {}
   _papeleoListenerActive = true;
-  firebaseDB.ref('papeleo').on('value', snap => {
-    const data = snap.val() || {};
-    if (!data || Object.keys(data).length === 0) return;
 
-    // Limpiar lista antes de re-renderizar
-    const lista = document.getElementById('docs-list-r');
-    const empty = document.getElementById('docs-empty-r');
-    if (lista) lista.innerHTML = '';
-    Object.keys(docsMap).forEach(k => delete docsMap[k]);
-
-    // Merge con archivos locales (base64 no se sube a Firebase por tamaño)
+  function _renderPapeleoFromFirebase(data) {
+    if (!data) return;
     let localPaps = {};
     try { localPaps = JSON.parse(localStorage.getItem('pawsy-papeleo') || '{}'); } catch(e) {}
-
     const docs = Object.values(data);
-    if (docs.length > 0) {
-      // Guardar en caché global para cuando abra la página
-      window._papeleoFirebaseCache = docs.map(fireDoc => {
-        const localDoc = localPaps[fireDoc.id];
-        if (localDoc && localDoc.archivos) fireDoc.archivos = localDoc.archivos;
-        else if (!fireDoc.archivos) fireDoc.archivos = {};
-        return fireDoc;
-      });
-      // Renderizar siempre — si la página no está activa igual actualiza docsMap y badge
-      Object.keys(docsMap).forEach(k => delete docsMap[k]);
-      window._papeleoFirebaseCache.forEach(fireDoc => { docsMap[fireDoc.id] = fireDoc; });
-      
-      const lista = document.getElementById('docs-list-r');
-      if (lista) {
+    // Actualizar caché y docsMap
+    Object.keys(docsMap).forEach(k => delete docsMap[k]);
+    window._papeleoFirebaseCache = docs.map(fireDoc => {
+      if (!fireDoc || !fireDoc.id) return null;
+      const localDoc = localPaps[fireDoc.id];
+      if (localDoc && localDoc.archivos) fireDoc.archivos = localDoc.archivos;
+      else if (!fireDoc.archivos) fireDoc.archivos = {};
+      docsMap[fireDoc.id] = fireDoc;
+      return fireDoc;
+    }).filter(Boolean);
+
+    // Re-renderizar lista completa
+    const lista = document.getElementById('docs-list-r');
+    const empty = document.getElementById('docs-empty-r');
+    if (lista) {
+      lista.innerHTML = '';
+      if (window._papeleoFirebaseCache.length > 0) {
         if (empty) empty.style.display = 'none';
-        lista.innerHTML = '';
         window._papeleoFirebaseCache.forEach(fireDoc => renderDocumentoRefugio(fireDoc));
+      } else {
+        if (empty) empty.style.display = 'block';
       }
-      updDocsBadge();
     }
+    updDocsBadge();
+  }
+
+  // Listener en tiempo real — detecta CUALQUIER cambio (nuevo doc, estado, etc)
+  firebaseDB.ref('papeleo').on('value', snap => {
+    const data = snap.val() || {};
+    _renderPapeleoFromFirebase(data);
   });
 }
 
