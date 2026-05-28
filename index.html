@@ -3633,34 +3633,45 @@ async function limpiarSolicitudesResueltas() {
   if (!currentAdoptante) return;
   const email = currentAdoptante.email.toLowerCase();
   const _key = 'pawsy-mis-sol-' + _fbUserKey(email);
+  let eliminadas = 0;
   try {
-    // Cargar lista actual
+    const db2 = await initFirebase();
+    if (db2) {
+      // Limpiar de solicitudes globales en Firebase
+      const snapGlobal = await firebaseDB.ref('solicitudes').once('value');
+      if (snapGlobal.exists()) {
+        const removes = [];
+        snapGlobal.forEach(child => {
+          const s = child.val();
+          if (s.adoptanteEmail && s.adoptanteEmail.toLowerCase() === email &&
+              (s.estado === 'aprobada' || s.estado === 'rechazada')) {
+            removes.push(firebaseDB.ref('solicitudes/' + child.key).remove());
+            eliminadas++;
+          }
+        });
+        await Promise.all(removes);
+      }
+      // Limpiar de mis_solicitudes
+      const snap = await firebaseDB.ref('mis_solicitudes/' + _fbUserKey(email)).once('value');
+      if (snap.exists()) {
+        const removes2 = [];
+        snap.forEach(child => {
+          const s = child.val();
+          if (s.estado === 'aprobada' || s.estado === 'rechazada') {
+            removes2.push(firebaseDB.ref('mis_solicitudes/' + _fbUserKey(email) + '/' + child.key).remove());
+          }
+        });
+        await Promise.all(removes2);
+      }
+    }
+    // Limpiar localStorage
     let lista = JSON.parse(localStorage.getItem(_key) || '[]');
-    const antes = lista.length;
-    // Filtrar solo pendientes
     lista = lista.filter(s => s.estado === 'pendiente');
     localStorage.setItem(_key, JSON.stringify(lista));
 
-    // También limpiar en Firebase
-    try {
-      const db2 = await initFirebase();
-      if (db2) {
-        const snap = await firebaseDB.ref('mis_solicitudes/' + _fbUserKey(email)).once('value');
-        if (snap.exists()) {
-          snap.forEach(child => {
-            const s = child.val();
-            if (s.estado === 'aprobada' || s.estado === 'rechazada') {
-              firebaseDB.ref('mis_solicitudes/' + _fbUserKey(email) + '/' + child.key).remove();
-            }
-          });
-        }
-      }
-    } catch(e) {}
-
-    const eliminadas = antes - lista.length;
     appToast(eliminadas > 0 ? `✓ ${eliminadas} solicitud(es) eliminadas` : 'No hay solicitudes resueltas');
     renderMisSolicitudes();
-  } catch(e) { appToast('Error al limpiar'); }
+  } catch(e) { appToast('Error al limpiar: ' + e.message); }
 }
 
 async function renderMisSolicitudes() {
