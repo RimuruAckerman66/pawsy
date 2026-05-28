@@ -5006,13 +5006,33 @@ async function enviarPapeleo() {
 
   // Firebase en segundo plano (sin bloquear)
   try {
-    initFirebase().then(db2 => {
+    initFirebase().then(async db2 => {
       if (!db2) return;
-      const toFb = { ...doc, archivos: undefined,
-        tieneArchivos: !!(doc.archivos.ine || doc.archivos.domicilio || doc.archivos.cuestionario) };
-      firebaseDB.ref('papeleo/' + doc.id).set(toFb);
+      // Guardar SIN archivos base64 (muy pesados), pero SÍ con metadata de qué archivos hay
+      const archivosMetadata = {};
+      if (doc.archivos) {
+        if (doc.archivos.ine) archivosMetadata.ine = { name: doc.archivos.ine.name, type: doc.archivos.ine.type };
+        if (doc.archivos.domicilio) archivosMetadata.domicilio = { name: doc.archivos.domicilio.name, type: doc.archivos.domicilio.type };
+        if (doc.archivos.cuestionario) archivosMetadata.cuestionario = { name: doc.archivos.cuestionario.name, type: doc.archivos.cuestionario.type };
+      }
+      const toFb = {
+        id: doc.id,
+        adoptanteEmail: doc.adoptanteEmail || '',
+        adoptanteName: doc.adoptanteName || '',
+        adoptanteTel: doc.adoptanteTel || '',
+        animal: doc.animal || '',
+        estado: doc.estado || 'pendiente',
+        fecha: doc.fecha || '',
+        tipoVivienda: doc.tipoVivienda || '',
+        numPersonas: doc.numPersonas || '',
+        motivacion: doc.motivacion || '',
+        tieneArchivos: Object.keys(archivosMetadata).length > 0,
+        archivos: archivosMetadata
+      };
+      await firebaseDB.ref('papeleo/' + doc.id).set(toFb);
+      console.log('Pawsy: papeleo subido a Firebase', doc.id);
     });
-  } catch(fe) {}
+  } catch(fe) { console.warn('Firebase papeleo error:', fe); }
 
   await new Promise(r => setTimeout(r, 700));
 
