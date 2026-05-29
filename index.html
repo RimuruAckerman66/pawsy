@@ -1730,6 +1730,7 @@ body.dark-mode .adopt-topbar{border-color:var(--bo);}
       </div>
       <div class="chat-messages" id="cm-r-msgs"></div>
       <div class="chat-input-bar">
+        <label class="chat-img-btn" title="Enviar imagen">📷<input class="chat-img-input" id="r-chat-img-input" type="file" accept="image/*" onchange="sendChatImage('r',this)"></label>
         <textarea class="chat-input" id="cm-r-input" placeholder="Escribe un mensaje al adoptante..." rows="1" onkeydown="chatEnter(event,'r')"></textarea>
         <button class="chat-send" onclick="sendChatMsg('r')" title="Enviar">➤</button>
       </div>
@@ -5658,6 +5659,66 @@ function getOrCreateChat(adoptante) {
 }
 
 // ─ Adoptante: render mensajes en su vista de chat ─
+// ─── ENVIAR IMAGEN EN CHAT ───
+function sendChatImage(role, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { appToast('Solo se pueden enviar imágenes'); return; }
+  if (file.size > 2 * 1024 * 1024) { appToast('La imagen es muy grande (máx 2MB)'); input.value = ''; return; }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const base64 = e.target.result;
+    // Determinar chatId según rol
+    let chatId, fromRole, avText, avBg;
+    if (role === 'a') {
+      // Adoptante enviando al refugio
+      if (!currentAdoptante) return;
+      chatId = getChatId(currentAdoptante);
+      fromRole = 'adoptante';
+      avText = currentAdoptante.initials || currentAdoptante.name[0];
+      avBg = 'var(--t)';
+    } else {
+      // Refugio enviando
+      chatId = activeChatId || _activeChatId;
+      fromRole = 'refugio';
+      avText = '🏛️';
+      avBg = 'var(--p)';
+    }
+    if (!chatId) { appToast('No hay chat activo'); return; }
+
+    const msg = {
+      from: fromRole,
+      text: '',
+      image: base64,
+      time: chatTimeStr(),
+      date: chatDateStr(),
+      ts: Date.now()
+    };
+
+    if (!chatDB[chatId]) {
+      chatDB[chatId] = {
+        name: role === 'a' ? (currentAdoptante.name || currentAdoptante.email) : (chatDB[chatId]?.name || ''),
+        initials: role === 'a' ? avText : '',
+        msgs: [], unread: false, unreadAdoptante: false
+      };
+    }
+    chatDB[chatId].msgs.push(msg);
+    if (role === 'a') chatDB[chatId].unread = true;
+    else chatDB[chatId].unreadAdoptante = true;
+
+    saveChatDB();
+
+    // Renderizar inmediatamente
+    if (role === 'a') renderAdoptChatMsgs();
+    else if (typeof renderChatMsgs === 'function') renderChatMsgs(chatId);
+
+    input.value = '';
+    appToast('✓ Imagen enviada');
+  };
+  reader.readAsDataURL(file);
+}
+
 function renderAdoptChatMsgs() {
   if (!currentAdoptante) return;
   const container = document.getElementById('adopt-chat-msgs');
@@ -5695,7 +5756,7 @@ function renderAdoptChatMsgs() {
     div.innerHTML = `
       <div class="chat-msg-av" style="background:${avBg};color:${avColor};">${avContent}</div>
       <div class="chat-bubble-wrap">
-        <div class="chat-bubble">${escHtml(m.text)}</div>
+        <div class="chat-bubble">${m.image ? `<img src="${m.image}" class="chat-img-msg" onclick="window.open(this.src,'_blank')" alt="imagen">` : ''}${m.text ? escHtml(m.text) : ''}</div>
         <div class="chat-ts">${m.time}${mine ? '<span class="chat-check">✓✓</span>' : ''}</div>
       </div>`;
     container.appendChild(div);
@@ -5758,7 +5819,7 @@ function renderChatModalMsgs() {
     div.innerHTML = `
       <div class="chat-msg-av" style="background:${avBg};color:${avColor};">${avContent}</div>
       <div class="chat-bubble-wrap">
-        <div class="chat-bubble">${escHtml(m.text)}</div>
+        <div class="chat-bubble">${m.image ? `<img src="${m.image}" class="chat-img-msg" onclick="window.open(this.src,'_blank')" alt="imagen">` : ''}${m.text ? escHtml(m.text) : ''}</div>
         <div class="chat-ts">${m.time}${mine ? '<span class="chat-check">✓✓</span>' : ''}</div>
       </div>`;
     container.appendChild(div);
