@@ -211,7 +211,13 @@ body.dark-mode .chat-bubble,
 body.dark-mode .chat-item,
 body.dark-mode .adopt-chat-wrap,
 body.dark-mode .adopt-chat-input-bar,
+body.dark-mode .adopt-chat-msgs-area,
+body.dark-mode .chat-messages,
 body.dark-mode .topbar{ background:var(--bg3) !important; }
+body.dark-mode .chat-refugio-header{background:linear-gradient(135deg,rgba(42,157,143,.15),rgba(42,157,143,.08)) !important;border-color:rgba(42,157,143,.3) !important;}
+body.dark-mode .chat-bubble{background:var(--bg4) !important;border-color:var(--bo) !important;color:var(--tx) !important;}
+body.dark-mode #adopt-chat{background:var(--bg2) !important;}
+body.dark-mode #adopt-chat > div{background:var(--bg2) !important;}
 
 /* inputs y selects nativos */
 body.dark-mode input,
@@ -549,10 +555,25 @@ body.dark-mode .esp-modal-item{background:var(--bg4);border-color:var(--bo);colo
 
 /* Chat input del adoptante */
 .adopt-chat-wrap{background:#fff;border-radius:16px;border:1px solid var(--bo);overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);}
+body.dark-mode .adopt-chat-wrap{background:var(--bg3);border-color:var(--bo);}
 .adopt-chat-msgs-area{height:350px;border-bottom:1px solid var(--bo);}
+body.dark-mode .adopt-chat-msgs-area{background:var(--bg3);}
 .adopt-chat-input-bar{padding:12px 14px;display:flex;gap:9px;align-items:flex-end;background:#fff;}
+body.dark-mode .adopt-chat-input-bar{background:var(--bg3);}
 .adopt-chat-input-bar .chat-input{border-color:rgba(42,157,143,.3);}
 .adopt-chat-input-bar .chat-send{background:linear-gradient(135deg,var(--t),#1a8577);}
+/* Chat image messages */
+.chat-img-msg{max-width:220px;max-height:220px;border-radius:14px;object-fit:cover;cursor:pointer;display:block;margin-top:4px;box-shadow:0 2px 10px rgba(0,0,0,.15);transition:transform .15s;}
+.chat-img-msg:hover{transform:scale(1.02);}
+.chat-img-input{display:none;}
+.chat-img-btn{background:none;border:none;font-size:20px;cursor:pointer;padding:4px 8px;border-radius:8px;transition:background .15s;color:var(--mu);}
+.chat-img-btn:hover{background:var(--tl);}
+/* Online status */
+.online-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:4px;animation:pulse-online 2s infinite;}
+.online-dot.offline{background:#94a3b8;animation:none;}
+.online-dot.away{background:#f59e0b;}
+.offline-dot{width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block;margin-right:4px;}
+@keyframes pulse-online{0%,100%{opacity:1;}50%{opacity:.5;}}
 
 /* Adoptante chat button */
 .chat-refugio-btn{background:var(--tl);border:1.5px solid var(--t);color:var(--t);border-radius:11px;padding:11px 16px;cursor:pointer;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;transition:all .15s;width:100%;}
@@ -2141,7 +2162,7 @@ body.dark-mode .adopt-topbar{border-color:var(--bo);}
       </div>
       <!-- CHAT AL REFUGIO -->
       <div id="adopt-chat" class="adopt-page">
-        <div class="topbar" style="background:#fff;"><div class="tb-title">💬 Chat al refugio</div></div>
+        <div class="topbar"><div class="tb-title">💬 Chat al refugio</div></div>
         <div style="padding:20px;">
           <!-- Header del refugio mejorado -->
           <div class="chat-refugio-header">
@@ -2149,13 +2170,14 @@ body.dark-mode .adopt-topbar{border-color:var(--bo);}
             <div style="flex:1;">
               <div style="font-size:14px;font-weight:800;color:var(--tx);margin-bottom:1px;" id="adopt-chat-refugio-name">Cargando...</div>
               <div style="font-size:11px;color:var(--mu);" id="adopt-chat-refugio-slogan">Escríbenos con tus preguntas sobre adopciones</div>
-              <div class="chat-refugio-online"><span class="chat-refugio-online-dot"></span>En línea · Responde pronto</div>
+              <div id="adopt-chat-online-status"><span class="online-dot"></span><span id="adopt-online-text">En línea · Responde pronto</span></div>
             </div>
           </div>
           <!-- Área de chat unificada -->
           <div class="adopt-chat-wrap">
             <div class="chat-messages adopt-chat-msgs-area" id="adopt-chat-msgs"></div>
             <div class="adopt-chat-input-bar">
+              <label class="chat-img-btn" title="Enviar imagen">📷<input class="chat-img-input" id="adopt-chat-img-input" type="file" accept="image/*" onchange="sendChatImage('a',this)"></label>
               <textarea class="chat-input" id="adopt-chat-input" placeholder="Escribe tu mensaje al refugio..." rows="1" onkeydown="chatEnter(event,'a')"></textarea>
               <button class="chat-send" onclick="sendChatMsg('a')" title="Enviar">➤</button>
             </div>
@@ -2734,6 +2756,7 @@ function enterRefugio(u){
     loadChatDB();
     gP('dashboard',null);
     startSync('refugio');
+    startPresence('refugio');
     startSyncPapeleo();
     startChatSync();
     refreshPerfilRefugioView();
@@ -2919,10 +2942,12 @@ function enterAdoptante(u){
     renderAdoptAnimales();
     renderMisSolicitudes();
     startSolicitudesListener();
+    startPresenceSystem();
     startSync('adoptante');
     startAnimalesSync();
     startChatSync();
     startPerfilRefugioSync();
+    startPresenceSystem();
     setTimeout(() => renderMisSolicitudes(), 2000);
   });
 }
@@ -4592,6 +4617,66 @@ async function syncNow(role) {
       });
     updSol();
     recargarDocsLocalStorage();
+  }
+}
+
+// ─── SISTEMA DE PRESENCIA EN LÍNEA ───
+let _presenceInterval = null;
+
+async function startPresence(role) {
+  try {
+    const db2 = await initFirebase();
+    if (!db2) return;
+    const refPath = 'presencia/' + role; // 'presencia/refugio' o 'presencia/adoptante_emailkey'
+    const presRef = firebaseDB.ref(refPath);
+    // Marcar como en línea
+    await presRef.set({ online: true, lastSeen: Date.now() });
+    // Al desconectar, marcar offline
+    presRef.onDisconnect().set({ online: false, lastSeen: Date.now() });
+    // Mantener presencia cada 30s
+    _presenceInterval = setInterval(() => {
+      presRef.set({ online: true, lastSeen: Date.now() }).catch(() => {});
+    }, 30000);
+  } catch(e) {}
+}
+
+async function watchPresence(role, callback) {
+  try {
+    const db2 = await initFirebase();
+    if (!db2) return;
+    firebaseDB.ref('presencia/' + role).on('value', snap => {
+      const data = snap.val();
+      if (data) callback(data.online, data.lastSeen);
+      else callback(false, null);
+    });
+  } catch(e) {}
+}
+
+function stopPresence(role) {
+  if (_presenceInterval) { clearInterval(_presenceInterval); _presenceInterval = null; }
+  try { initFirebase().then(db2 => { if(db2) firebaseDB.ref('presencia/' + role).set({ online: false, lastSeen: Date.now() }); }); } catch(e) {}
+}
+
+function updateOnlineStatusUI(online, lastSeen) {
+  const dot = document.querySelector('#adopt-chat-online-status .online-dot');
+  const text = document.getElementById('adopt-online-text');
+  if (!dot || !text) return;
+  if (online) {
+    dot.className = 'online-dot';
+    text.textContent = 'En línea · Responde pronto';
+  } else {
+    dot.className = 'online-dot offline';
+    if (lastSeen) {
+      const diff = Date.now() - lastSeen;
+      const mins = Math.floor(diff / 60000);
+      const hrs = Math.floor(mins / 60);
+      if (mins < 2) text.textContent = 'Visto hace un momento';
+      else if (mins < 60) text.textContent = `Visto hace ${mins} min`;
+      else if (hrs < 24) text.textContent = `Visto hace ${hrs}h`;
+      else text.textContent = 'Fuera de línea';
+    } else {
+      text.textContent = 'Fuera de línea';
+    }
   }
 }
 
