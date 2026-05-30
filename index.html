@@ -527,7 +527,8 @@ body.dark-mode .esp-modal-item{background:var(--bg4);border-color:var(--bo);colo
 .chat-msg.mine{flex-direction:row-reverse;align-self:flex-end;}
 .chat-bubble-wrap{display:flex;flex-direction:column;}
 .chat-msg.mine .chat-bubble-wrap{align-items:flex-end;}
-.chat-bubble{padding:10px 14px;border-radius:18px;font-size:12.5px;line-height:1.55;color:var(--tx);background:#fff;border:1px solid var(--bo);box-shadow:0 1px 4px rgba(0,0,0,.06);border-bottom-left-radius:5px;word-break:break-word;}
+.chat-bubble{padding:10px 14px;border-radius:18px;font-size:12.5px;line-height:1.55;color:var(--tx);background:#fff;border:1px solid var(--bo);box-shadow:0 1px 4px rgba(0,0,0,.06);border-bottom-left-radius:5px;word-break:break-word;max-width:280px;}
+.chat-bubble:has(img){padding:5px;background:transparent;border:none;box-shadow:none;}
 .chat-msg.mine .chat-bubble{background:linear-gradient(135deg,var(--t),#1a8577);color:#fff;border-color:transparent;box-shadow:0 2px 10px rgba(42,157,143,.3);border-bottom-right-radius:5px;border-bottom-left-radius:18px;}
 .chat-msg-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.1);align-self:flex-end;}
 .chat-msg-av img{width:100%;height:100%;object-fit:cover;}
@@ -563,7 +564,7 @@ body.dark-mode .adopt-chat-input-bar{background:var(--bg3);}
 .adopt-chat-input-bar .chat-input{border-color:rgba(42,157,143,.3);}
 .adopt-chat-input-bar .chat-send{background:linear-gradient(135deg,var(--t),#1a8577);}
 /* Chat image messages */
-.chat-img-msg{max-width:220px;max-height:220px;border-radius:14px;object-fit:cover;cursor:pointer;display:block;margin-top:4px;box-shadow:0 2px 10px rgba(0,0,0,.15);transition:transform .15s;}
+.chat-img-msg{max-width:280px;max-height:320px;width:100%;border-radius:14px;object-fit:cover;cursor:pointer;display:block;margin-top:4px;box-shadow:0 2px 10px rgba(0,0,0,.15);transition:transform .15s;}
 .chat-img-msg:hover{transform:scale(1.02);}
 .chat-img-input{display:none;}
 .chat-img-btn{background:none;border:none;font-size:20px;cursor:pointer;padding:4px 8px;border-radius:8px;transition:background .15s;color:var(--mu);}
